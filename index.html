@@ -43,6 +43,19 @@
       padding: 8px 14px;
     }
     .proj.shellrow { color: #7fa8d9; font-size: 12px; padding: 4px 14px; }
+    .roothead {
+      padding: 10px 14px 3px; font-size: 11px; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase; color: #666;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .roothead .name { flex: 1; }
+    .roothead .sh {
+      display: none; font-size: 10px; color: #777; cursor: pointer;
+      padding: 1px 5px; border: 1px solid #333; border-radius: 4px;
+      text-transform: none; letter-spacing: 0;
+    }
+    .roothead:hover .sh { display: inline; }
+    .roothead .sh:hover { color: #fff; border-color: #666; }
     #fixedrows { border-bottom: 1px solid #26272b; padding-bottom: 6px; margin-bottom: 2px; }
     #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
     #tabbar {
@@ -72,8 +85,10 @@
     .tab .dot.done { background: #2ecc71; }
     @keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
     #terms { flex: 1; position: relative; min-height: 0; }
-    .term-holder { position: absolute; padding: 8px 4px 4px 10px; display: none; }
-    .xterm { height: 100%; }
+    .term-holder { position: absolute; display: none; }
+    /* padding must live on .xterm, not the holder — the fit addon only subtracts
+       the terminal element's own padding, so holder padding causes clipped rows */
+    .xterm { height: 100%; padding: 8px 4px 8px 10px; }
     .browser-holder { position: absolute; display: none; flex-direction: column; }
     .holder-focused { outline: 1px solid #3a3b40; outline-offset: -1px; }
     #divider { position: absolute; z-index: 5; display: none; background: transparent; }

@@ -1,12 +1,11 @@
 const { ipcRenderer } = require('electron')
 const { Terminal } = require('@xterm/xterm')
 const { FitAddon } = require('@xterm/addon-fit')
-const path = require('path')
 const os = require('os')
+const path = require('path')
 const fs = require('fs')
 
-const PROJECTS_DIR = path.join(os.homedir(), 'Desktop', 'projects')
-const HUB_DIR = path.join(PROJECTS_DIR, '_hub')
+const HUB_DIR = path.join(__dirname, '_hub')
 
 const BOOKMARKS_FILE = path.join(__dirname, 'bookmarks.json')
 const loadBookmarks = () => { try { return JSON.parse(fs.readFileSync(BOOKMARKS_FILE, 'utf8')) } catch { return [] } }
@@ -247,7 +246,7 @@ function openTab(title, cwd, opts = {}) {
   showInPane(focusedPane, id)
   fit.fit()
 
-  ipcRenderer.invoke('spawn', id, cwd, term.cols, term.rows, opts.shell ? 'shell' : 'claude')
+  ipcRenderer.invoke('spawn', id, cwd, term.cols, term.rows, opts.shell ? 'shell' : opts.resume ? 'claude-resume' : 'claude')
   term.onData(d => {
     if (d.includes('\r')) setStatus(id, 'working')
     ipcRenderer.send('pty-input', id, d)
@@ -434,30 +433,45 @@ window.addEventListener('resize', applyLayout)
 
 // ---------- sidebar ----------
 
-function openHub() {
+function openHub(resume = false) {
   const t = tabs.get(hubId)
   if (t && !t.dead) return activate(hubId)
-  if (t) closeTab(hubId, true) // hub session died — replace it with a fresh one
-  hubId = openTab('⌂ Hub', HUB_DIR, { pinned: true })
+  // hub session ended — exiting it is how you ask for a fresh one, so no resume here
+  if (t) closeTab(hubId, true)
+  hubId = openTab('⌂ Hub', HUB_DIR, { pinned: true, resume })
 }
 
-function renderProjects(projects) {
+function renderProjects(sections) {
   projlist.innerHTML = ''
-  for (const { name } of projects) {
-    const el = document.createElement('div')
-    el.className = 'proj'
-    el.title = name
-    const lbl = document.createElement('span')
-    lbl.className = 'name'
-    lbl.textContent = name
-    const sh = document.createElement('span')
-    sh.className = 'sh'
-    sh.textContent = '❯_'
-    sh.title = 'Open plain terminal here'
-    sh.onclick = e => { e.stopPropagation(); openTab(name + ' ❯', path.join(PROJECTS_DIR, name), { shell: true }) }
-    el.append(lbl, sh)
-    el.onclick = () => openTab(name, path.join(PROJECTS_DIR, name))
-    projlist.appendChild(el)
+  for (const { root, dir, projects } of sections) {
+    const head = document.createElement('div')
+    head.className = 'roothead'
+    const hlbl = document.createElement('span')
+    hlbl.className = 'name'
+    hlbl.textContent = root
+    const hsh = document.createElement('span')
+    hsh.className = 'sh'
+    hsh.textContent = '❯_'
+    hsh.title = `Open plain terminal in ${dir}`
+    hsh.onclick = () => openTab(root + ' ❯', dir, { shell: true })
+    head.append(hlbl, hsh)
+    projlist.appendChild(head)
+    for (const p of projects) {
+      const el = document.createElement('div')
+      el.className = 'proj'
+      el.title = p.name
+      const lbl = document.createElement('span')
+      lbl.className = 'name'
+      lbl.textContent = p.name
+      const sh = document.createElement('span')
+      sh.className = 'sh'
+      sh.textContent = '❯_'
+      sh.title = 'Open plain terminal here'
+      sh.onclick = e => { e.stopPropagation(); openTab(p.name + ' ❯', p.dir, { shell: true }) }
+      el.append(lbl, sh)
+      el.onclick = () => openTab(p.name, p.dir)
+      projlist.appendChild(el)
+    }
   }
 }
 
@@ -470,12 +484,12 @@ async function init() {
   hubEl.onclick = openHub
   fixedrows.appendChild(hubEl)
 
-  const rootTermEl = document.createElement('div')
-  rootTermEl.className = 'proj shellrow'
-  rootTermEl.textContent = '❯_ Terminal'
-  rootTermEl.title = 'Plain shell in ~/Desktop/projects'
-  rootTermEl.onclick = () => openTab('projects ❯', PROJECTS_DIR, { shell: true })
-  fixedrows.appendChild(rootTermEl)
+  const termEl = document.createElement('div')
+  termEl.className = 'proj shellrow'
+  termEl.innerHTML = `<span class="ic">${lucide('terminal')}</span>Terminal`
+  termEl.title = 'Open a plain terminal in your home directory'
+  termEl.onclick = () => openTab('❯ Terminal', os.homedir(), { shell: true })
+  fixedrows.appendChild(termEl)
 
   const browserEl = document.createElement('div')
   browserEl.className = 'proj shellrow'
@@ -484,11 +498,17 @@ async function init() {
   browserEl.onclick = () => openBrowserTab()
   fixedrows.appendChild(browserEl)
 
-  const projects = await ipcRenderer.invoke('list-projects')
-  renderProjects(projects)
+  await refreshProjects()
 
-  // auto-open the hub session on launch
-  openHub()
+  // auto-open the hub session on launch, resuming the latest hub conversation
+  openHub(true)
 }
+
+async function refreshProjects() {
+  renderProjects(await ipcRenderer.invoke('list-projects'))
+}
+
+// pick up config.json edits (and new/removed project folders) on refocus
+window.addEventListener('focus', refreshProjects)
 
 init()

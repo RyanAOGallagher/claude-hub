@@ -2,7 +2,7 @@
 
 A tiny personal GUI for running [Claude Code](https://claude.com/claude-code) across many projects: one pinned **Hub** session that acts as a project manager with cross-project context, plus per-project session tabs, plain terminals, a localhost-oriented browser, and split panes.
 
-The app is deliberately dumb (~600 lines of vanilla Electron/JS). All the intelligence lives in markdown conventions in a `_hub/` folder next to your projects.
+The app is deliberately dumb (~600 lines of vanilla Electron/JS). All the intelligence lives in markdown conventions in the `_hub/` folder inside this repo.
 
 ## What it does
 
@@ -15,7 +15,7 @@ The app is deliberately dumb (~600 lines of vanilla Electron/JS). All the intell
 
 ## Setup
 
-Expects your projects as sibling folders under `~/Desktop/projects` (edit `PROJECTS_DIR` in `main.js`/`renderer.js` to change), with a `_hub/` folder alongside them for briefs.
+Projects are the subfolders of the roots listed in `ROOTS` in `main.js` (defaults: `~/Desktop/projects` and `~/Desktop/work`), shown as sidebar sections. Briefs live in `_hub/` inside this repo.
 
 ```sh
 npm install

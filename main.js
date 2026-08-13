@@ -6,9 +6,25 @@ const fs = require('fs')
 const http = require('http')
 const pty = require('node-pty')
 
-const PROJECTS_DIR = path.join(os.homedir(), 'Desktop', 'projects')
-const HUB_DIR = path.join(PROJECTS_DIR, '_hub')
-const SKIP = new Set(['_hub', 'builds', 'deprecated', 'node_modules', 'untitled folder'])
+// Folders whose subdirectories show up as projects in the sidebar,
+// user-editable via config.json in the repo root (auto-created on first launch)
+const CONFIG_FILE = path.join(__dirname, 'config.json')
+const DEFAULT_ROOTS = ['~/Desktop/projects', '~/Desktop/work']
+
+const expandHome = p => (p.startsWith('~') ? path.join(os.homedir(), p.slice(1)) : p)
+
+function loadRoots() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
+    if (Array.isArray(cfg.roots) && cfg.roots.length) return cfg.roots.map(expandHome)
+  } catch {}
+  return DEFAULT_ROOTS.map(expandHome)
+}
+
+if (!fs.existsSync(CONFIG_FILE)) {
+  try { fs.writeFileSync(CONFIG_FILE, JSON.stringify({ roots: DEFAULT_ROOTS }, null, 2) + '\n') } catch {}
+}
+const SKIP = new Set(['_hub', 'builds', 'deprecated', 'node_modules', 'untitled folder', '__pycache__'])
 
 const ptys = new Map()
 let win
@@ -75,17 +91,25 @@ function detectType(dir) {
 }
 
 ipcMain.handle('list-projects', () => {
-  return fs
-    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !d.name.startsWith('.') && !SKIP.has(d.name))
-    .map(d => ({ name: d.name, type: detectType(path.join(PROJECTS_DIR, d.name)) }))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  return loadRoots().filter(root => fs.existsSync(root)).map(root => ({
+    root: path.basename(root),
+    dir: root,
+    projects: fs
+      .readdirSync(root, { withFileTypes: true })
+      .filter(d => d.isDirectory() && !d.name.startsWith('.') && !SKIP.has(d.name))
+      .map(d => ({ name: d.name, type: detectType(path.join(root, d.name)), dir: path.join(root, d.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  }))
 })
 
 ipcMain.handle('spawn', (e, id, cwd, cols, rows, cmd = 'claude') => {
   const shell = process.env.SHELL || '/bin/zsh'
   // login+interactive shell so PATH and aliases resolve even when launched from Finder
-  const args = cmd === 'shell' ? ['-l'] : ['-l', '-i', '-c', 'claude']
+  const args =
+    cmd === 'shell' ? ['-l']
+    // resume the latest session in this cwd; falls back to a fresh one if there is none
+    : cmd === 'claude-resume' ? ['-l', '-i', '-c', 'claude --continue || claude']
+    : ['-l', '-i', '-c', 'claude']
   const p = pty.spawn(shell, args, {
     name: 'xterm-256color',
     cols,
