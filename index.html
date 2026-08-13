@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Claude Hub</title>
+  <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css" />
+  <style>
+    :root { color-scheme: dark; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #111214; color: #ddd;
+      height: 100vh; display: flex; overflow: hidden;
+      user-select: none;
+    }
+    #sidebar {
+      width: 210px; flex-shrink: 0;
+      background: #191a1d; border-right: 1px solid #26272b;
+      display: flex; flex-direction: column;
+      padding-top: 40px; /* room for traffic lights */
+      -webkit-app-region: drag;
+    }
+    #sidebar .head {
+      padding: 4px 14px 8px; font-size: 11px; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase; color: #666;
+    }
+    #fixedrows { -webkit-app-region: no-drag; }
+    #projlist { overflow-y: auto; flex: 1; -webkit-app-region: no-drag; padding: 6px 0 10px; }
+    .proj {
+      padding: 6px 14px; font-size: 12.5px; cursor: pointer; color: #a6a7ab;
+      white-space: nowrap; display: flex; align-items: center; gap: 6px;
+    }
+    .proj .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .proj .sh {
+      display: none; font-size: 10px; color: #777;
+      padding: 1px 5px; border: 1px solid #333; border-radius: 4px;
+    }
+    .proj:hover .sh { display: inline; }
+    .proj .sh:hover { color: #fff; border-color: #666; }
+    .proj:hover { background: #222327; color: #fff; }
+    .proj.hub {
+      color: #e8b04b; font-weight: 600; font-size: 13px;
+      padding: 8px 14px;
+    }
+    .proj.shellrow { color: #7fa8d9; font-size: 12px; padding: 4px 14px; }
+    #fixedrows { border-bottom: 1px solid #26272b; padding-bottom: 6px; margin-bottom: 2px; }
+    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    #tabbar {
+      height: 40px; flex-shrink: 0;
+      display: flex; align-items: flex-end; gap: 2px;
+      background: #191a1d; border-bottom: 1px solid #26272b;
+      padding: 0 8px; overflow-x: auto;
+      -webkit-app-region: drag;
+    }
+    #tabbar::-webkit-scrollbar { display: none; }
+    .tab {
+      -webkit-app-region: no-drag;
+      padding: 8px 12px; font-size: 12px; color: #999; cursor: pointer;
+      border-radius: 6px 6px 0 0; display: flex; gap: 8px; align-items: center;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .tab.active { background: #111214; color: #fff; }
+    .tab.dead { color: #666; font-style: italic; }
+    .tab .x { opacity: .35; font-size: 11px; }
+    .tab .x:hover { opacity: 1; }
+    .tab .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: transparent; flex-shrink: 0;
+    }
+    .tab .dot.working { background: #8a8b90; animation: pulse 1.4s ease-in-out infinite; }
+    .tab .dot.attention { background: #ff9f43; box-shadow: 0 0 6px #ff9f43aa; }
+    .tab .dot.done { background: #2ecc71; }
+    @keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+    #terms { flex: 1; position: relative; min-height: 0; }
+    .term-holder { position: absolute; padding: 8px 4px 4px 10px; display: none; }
+    .xterm { height: 100%; }
+    .browser-holder { position: absolute; display: none; flex-direction: column; }
+    .holder-focused { outline: 1px solid #3a3b40; outline-offset: -1px; }
+    #divider { position: absolute; z-index: 5; display: none; background: transparent; }
+    #divider:hover, #divider:active { background: #3a3b40; }
+    #divider.row { cursor: col-resize; width: 7px; margin-left: -3px; height: 100%; }
+    #divider.col { cursor: row-resize; height: 7px; margin-top: -3px; width: 100%; }
+    .splitbtns {
+      -webkit-app-region: no-drag;
+      margin-left: auto; align-self: center;
+      display: flex; gap: 2px; padding-right: 8px;
+    }
+    .sbtn { color: #777; font-size: 13px; cursor: pointer; padding: 3px 6px; border-radius: 4px; }
+    .sbtn:hover { background: #222327; color: #fff; }
+    .sbtn.on { color: #e8b04b; }
+    .btoolbar {
+      height: 36px; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+      padding: 0 10px; border-bottom: 1px solid #26272b;
+    }
+    .bbtn {
+      background: none; border: none; color: #999; font-size: 15px; cursor: pointer;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .bbtn:hover { background: #222327; color: #fff; }
+    .urlbar {
+      flex: 1; background: #191a1d; border: 1px solid #2e2f34; border-radius: 6px;
+      color: #ddd; font-size: 12.5px; padding: 5px 10px; outline: none;
+    }
+    .urlbar:focus { border-color: #555; }
+    webview { flex: 1; background: #fff; }
+    .startpanel {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+    }
+    .sp-head { color: #888; font-size: 13px; margin-bottom: 6px; }
+    .sp-hint { color: #555; font-size: 12px; }
+    .portbtn {
+      background: #191a1d; border: 1px solid #2e2f34; border-radius: 8px;
+      color: #7fa8d9; font-size: 14px; font-family: Menlo, monospace;
+      padding: 10px 26px; cursor: pointer; min-width: 220px;
+    }
+    .portbtn:hover { border-color: #7fa8d9; color: #fff; }
+    .bmbtn { font-family: inherit; color: #a6a7ab; }
+    .bmbtn:hover { border-color: #777; }
+    .spsec { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .proj .ic { display: inline-flex; align-items: center; }
+    .proj .ic svg { stroke: currentColor; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <div class="head">Claude Hub</div>
+    <div id="fixedrows"></div>
+    <div id="projlist"></div>
+  </div>
+  <div id="main">
+    <div id="tabbar"></div>
+    <div id="terms"><div id="divider"></div></div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
