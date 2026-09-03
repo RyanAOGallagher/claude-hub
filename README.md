@@ -1,6 +1,6 @@
 # claude-hub
 
-A tiny personal GUI for running [Claude Code](https://claude.com/claude-code) across many projects: one pinned **Hub** session that acts as a project manager with cross-project context, plus per-project session tabs, plain terminals, a localhost-oriented browser, and split panes.
+A tiny personal GUI for running Claude Code or Crush across many projects: one pinned **Hub** session that acts as a project manager with cross-project context, plus per-project session tabs, plain terminals, a localhost-oriented browser, and split panes.
 
 The app is deliberately dumb (~600 lines of vanilla Electron/JS). All the intelligence lives in markdown conventions in the `_hub/` folder inside this repo.
 
@@ -15,7 +15,20 @@ The app is deliberately dumb (~600 lines of vanilla Electron/JS). All the intell
 
 ## Setup
 
-Projects are the subfolders of the roots listed in `ROOTS` in `main.js` (defaults: `~/Desktop/projects` and `~/Desktop/work`), shown as sidebar sections. Briefs live in `_hub/` inside this repo.
+Sidebar groups and the hub folder are set in `config.json` (auto-created on first launch, re-read whenever the window regains focus):
+
+```json
+{
+  "harness": "crush",
+  "groups": [
+    { "title": "Projects", "path": "~/Desktop/projects" },
+    { "title": "Work", "path": "~/Desktop/work" }
+  ],
+  "hub": "~/Desktop/projects/_hub"
+}
+```
+
+Each group's subfolders are listed as projects under its title. Set `harness` to `"crush"` or `"claude"` (the default). `hub` is where the pinned Hub session runs (briefs + daily log live there); leave it out to default to `_hub/` inside the first group. Crush reads the existing `CLAUDE.md` project and hub instructions, so both harnesses share the same brief conventions.
 
 ```sh
 npm install
@@ -46,4 +59,4 @@ The relay script is a no-op for Claude sessions not spawned by the app, so it's 
 - Vanilla JS on purpose — xterm and webview are imperative DOM instances; a `<webview>` reloads its page if reparented, so panes are pure geometry over absolutely-positioned holders.
 - No emoji in the UI; icons are [Lucide](https://lucide.dev) SVGs.
 
-Built with Claude Code, for Claude Code.
+Built for Claude Code and Crush.
