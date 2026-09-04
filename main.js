@@ -7,9 +7,10 @@ const http = require('http')
 const pty = require('node-pty')
 
 // Sidebar groups, user-editable via config.json in the repo root (auto-created on first launch):
-//   { "groups": [{ "title": "Projects", "path": "~/Desktop/projects" }, ...], "hub": "~/Desktop/projects/_hub" }
+//   { "harness": "claude", "groups": [{ "title": "Projects", "path": "~/Desktop/projects" }, ...], "hub": "~/Desktop/projects/claude-hub/_hub" }
 // Each group's subfolders are listed as projects under its title. `hub` (optional) is the folder
-// the pinned Hub session opens in; defaults to `_hub/` inside the first group.
+// the pinned Hub session opens in; defaults to `_hub/` inside this repo. `harness` picks the CLI
+// new/resumed sessions run — "claude" (default) or "crush"; the sidebar toggle writes it.
 // Legacy shape `{ "roots": ["~/Desktop/projects"] }` still works (title = folder name).
 const CONFIG_FILE = path.join(__dirname, 'config.json')
 const DEFAULT_CONFIG = {
@@ -34,7 +35,7 @@ function loadConfig() {
     groups = cfg.roots.filter(r => typeof r === 'string').map(r => ({ title: path.basename(r), dir: expandHome(r) }))
   }
   if (!groups.length) groups = DEFAULT_CONFIG.groups.map(g => ({ title: g.title, dir: expandHome(g.path) }))
-  const hub = typeof cfg.hub === 'string' && cfg.hub.trim() ? expandHome(cfg.hub) : path.join(groups[0].dir, '_hub')
+  const hub = typeof cfg.hub === 'string' && cfg.hub.trim() ? expandHome(cfg.hub) : path.join(__dirname, '_hub')
   const harness = cfg.harness === 'crush' ? 'crush' : 'claude'
   return { groups, hub, harness }
 }
@@ -175,6 +176,16 @@ ipcMain.handle('list-projects', () => {
 })
 
 ipcMain.handle('app-config', () => loadConfig())
+
+// Read-modify-write so hand-edited config.json keys (groups, hub) survive the toggle
+ipcMain.handle('set-harness', (e, h) => {
+  const harness = h === 'crush' ? 'crush' : 'claude'
+  let cfg = {}
+  try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) } catch {}
+  cfg.harness = harness
+  try { fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2) + '\n') } catch {}
+  return harness
+})
 
 ipcMain.handle('spawn', (e, id, cwd, cols, rows, mode = 'agent') => {
   const shell = process.env.SHELL || '/bin/zsh'

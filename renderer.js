@@ -5,18 +5,15 @@ const os = require('os')
 const path = require('path')
 const fs = require('fs')
 
-// hub folder: config.json `hub`, else `_hub/` inside the first group (falls back to next to the repo).
+// hub folder: config.json `hub`, else `_hub/` inside this repo.
 // Read synchronously here so HUB_DIR is a plain constant; main.js owns the parsing (see loadConfig there).
 const HUB_DIR = (() => {
   const expandHome = p => (p.startsWith('~') ? path.join(os.homedir(), p.slice(1)) : p)
   try {
     const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'))
     if (typeof cfg.hub === 'string' && cfg.hub.trim()) return expandHome(cfg.hub)
-    const first = Array.isArray(cfg.groups) ? cfg.groups.find(g => g && g.path)?.path
-                : Array.isArray(cfg.roots) ? cfg.roots[0] : null
-    if (first) return path.join(expandHome(first), '_hub')
   } catch {}
-  return path.join(__dirname, '..', '_hub')
+  return path.join(__dirname, '_hub')
 })()
 
 const BOOKMARKS_FILE = path.join(__dirname, 'bookmarks.json')
@@ -39,7 +36,23 @@ const tabs = new Map() // id -> { kind, term, fit, holder, tabEl, dot, title, de
 let nextId = 1
 let hubId = null
 let harness = 'claude'
+let harnessRow = null
 const harnessName = () => harness === 'crush' ? 'Crush' : 'Claude'
+const accent = () => (getComputedStyle(document.documentElement).getPropertyValue('--accent') || '').trim() || '#e8b04b'
+
+function paintHarnessRow() {
+  document.documentElement.dataset.harness = harness
+  if (!harnessRow) return
+  harnessRow.querySelector('.name').textContent = harnessName()
+  harnessRow.querySelector('.ic').innerHTML = lucide(harness === 'crush' ? 'zap' : 'bot')
+  harnessRow.title = `New and resumed sessions run ${harnessName()} — click to switch to ${harness === 'crush' ? 'Claude' : 'Crush'}. Running tabs keep their own CLI.`
+}
+
+async function setHarness(next) {
+  harness = await ipcRenderer.invoke('set-harness', next)
+  document.title = `${harnessName()} Hub`
+  paintHarnessRow()
+}
 
 // ---------- pane layout ----------
 // Tabs live as absolutely-positioned holders inside #terms; panes are pure
@@ -310,7 +323,7 @@ function openTab(title, cwd, opts = {}) {
   const term = new Terminal({
     fontSize: 13,
     fontFamily: 'Menlo, Monaco, monospace',
-    theme: { background: '#111214', foreground: '#d6d6d6', cursor: '#e8b04b' },
+    theme: { background: '#111214', foreground: '#d6d6d6', cursor: accent() },
     cursorBlink: true,
     macOptionIsMeta: true,
     scrollback: 20000
@@ -851,6 +864,13 @@ async function init() {
   browserEl.onclick = () => openBrowserTab()
   fixedrows.appendChild(browserEl)
 
+  harnessRow = document.createElement('div')
+  harnessRow.className = 'proj harness'
+  harnessRow.innerHTML = `<span class="ic"></span><span class="name"></span><span class="sh">↔</span>`
+  harnessRow.onclick = () => setHarness(harness === 'crush' ? 'claude' : 'crush')
+  paintHarnessRow()
+  fixedrows.appendChild(harnessRow)
+
   await refreshProjects()
 
   // auto-open the hub session on launch, resuming the latest hub conversation
@@ -859,6 +879,9 @@ async function init() {
 
 async function refreshProjects() {
   lastSections = await ipcRenderer.invoke('list-projects')
+  // pick up a harness changed outside the app (hand-edited config.json)
+  const cfg = await ipcRenderer.invoke('app-config')
+  if (cfg.harness !== harness) { harness = cfg.harness; document.title = `${harnessName()} Hub`; paintHarnessRow() }
   // project view: re-read the brief + tree instead (the hub may have edited the brief)
   if (pvRefresh) pvRefresh()
   else { sidebarKey = 'list'; renderProjects(lastSections) }

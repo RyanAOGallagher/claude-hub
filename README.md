@@ -12,6 +12,7 @@ The app is deliberately dumb (~600 lines of vanilla Electron/JS). All the intell
 - **Browser tabs** — url bar plus a start page that detects dev servers listening on localhost (ports 3000–9999) as one-click buttons, and simple bookmarks (`bookmarks.json`, ☆ to add, right-click to remove).
 - **Split panes** — side-by-side or top/bottom (`◫` / `⊟` buttons), draggable divider. Browser next to the Claude session that's running the dev server.
 - **Notifications** — via Claude Code hooks: per-tab status dots (working / needs-input / finished), a dock badge counting sessions waiting on you, and native macOS notifications that focus the right tab when clicked.
+- **Harness toggle** — the Claude/Crush row at the bottom of the sidebar picks which CLI new and resumed sessions launch; click it to switch. Running tabs keep their own CLI, and the choice persists to `config.json`. The app's accent color follows it: orange for Claude, Crush's pink-purple for Crush.
 
 ## Setup
 
@@ -24,11 +25,11 @@ Sidebar groups and the hub folder are set in `config.json` (auto-created on firs
     { "title": "Projects", "path": "~/Desktop/projects" },
     { "title": "Work", "path": "~/Desktop/work" }
   ],
-  "hub": "~/Desktop/projects/_hub"
+  "hub": "~/Desktop/projects/claude-hub/_hub"
 }
 ```
 
-Each group's subfolders are listed as projects under its title. Set `harness` to `"crush"` or `"claude"` (the default). `hub` is where the pinned Hub session runs (briefs + daily log live there); leave it out to default to `_hub/` inside the first group. Crush reads the existing `CLAUDE.md` project and hub instructions, so both harnesses share the same brief conventions.
+Each group's subfolders are listed as projects under its title. `harness` picks the CLI new and resumed sessions run — `"claude"` (default) or `"crush"`; the sidebar row below Browser flips it, and hand-editing the file still works (re-read when the window regains focus). `hub` is where the pinned Hub session runs (briefs + daily log live there); leave it out to default to `_hub/` inside this repo. Crush reads the existing `CLAUDE.md` project and hub instructions, so both harnesses share the same brief conventions.
 
 ```sh
 npm install
@@ -56,6 +57,7 @@ The relay script is a no-op for Claude sessions not spawned by the app, so it's 
 ## Design rules
 
 - The GUI stays dumb; conventions (briefs, daily log, PM behavior) live in `_hub/` markdown.
+- The accent color follows the harness via `--accent` / `--accent-grad` CSS variables on `:root` (flipped by a `data-harness` attribute): flat orange `#e8b04b` for Claude; Crush's own logo colors, Dolly `#ff60ff` → Charple `#6b50ff` (pink → purple), for Crush. The xterm cursor reads `--accent` when a tab is created.
 - Vanilla JS on purpose — xterm and webview are imperative DOM instances; a `<webview>` reloads its page if reparented, so panes are pure geometry over absolutely-positioned holders.
 - No emoji in the UI; icons are [Lucide](https://lucide.dev) SVGs.
 

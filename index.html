@@ -5,7 +5,8 @@
   <title>Claude Hub</title>
   <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css" />
   <style>
-    :root { color-scheme: dark; }
+    :root { color-scheme: dark; --accent: #e8b04b; --accent-grad: linear-gradient(90deg, #e8b04b, #e8b04b); }
+    :root[data-harness='crush'] { --accent: #ff60ff; --accent-grad: linear-gradient(90deg, #ff60ff, #6b50ff); }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -36,10 +37,19 @@
     .proj .sh:hover { color: #fff; border-color: #666; }
     .proj:hover { background: #222327; color: #fff; }
     .proj.hub {
-      color: #e8b04b; font-weight: 600; font-size: 13px;
+      color: var(--accent); font-weight: 600; font-size: 13px;
       padding: 8px 14px;
     }
-    .proj.shellrow { color: #7fa8d9; font-size: 12px; padding: 4px 14px; }
+    .proj.shellrow { color: #ddd; font-size: 12px; padding: 4px 14px; }
+    .proj.harness {
+      color: var(--accent); font-size: 12px; padding: 6px 14px;
+      border-top: 1px solid #26272b; margin-top: 4px;
+    }
+    .proj.hub .name, .proj.harness .name, .pvhead {
+      background: var(--accent-grad);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
     .proj .rfsh {
       visibility: hidden; display: inline-flex; align-items: center;
       color: #777; padding: 2px; border-radius: 4px; cursor: pointer;
@@ -69,7 +79,7 @@
     #fixedrows { border-bottom: 1px solid #26272b; padding-bottom: 6px; margin-bottom: 2px; }
     /* project view (sidebar while a project tab is focused) */
     .pvhead {
-      padding: 10px 14px 2px; font-size: 13px; font-weight: 600; color: #e8b04b;
+      padding: 10px 14px 2px; font-size: 13px; font-weight: 600; color: var(--accent);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .rootbody.brief {
@@ -160,7 +170,7 @@
     }
     .sbtn { color: #777; font-size: 13px; cursor: pointer; padding: 3px 6px; border-radius: 4px; }
     .sbtn:hover { background: #222327; color: #fff; }
-    .sbtn.on { color: #e8b04b; }
+    .sbtn.on { color: var(--accent); }
     .btoolbar {
       height: 36px; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
       padding: 0 10px; border-bottom: 1px solid #26272b;
